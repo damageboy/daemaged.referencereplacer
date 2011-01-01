@@ -4,10 +4,10 @@ open Mono.Cecil.Pdb;
 open System.IO;
 open System.Text.RegularExpressions;
 
-let patchAssembly (targetAsm : string) (targetPatchedAsm : string) (re : Regex) (replace : string) =
+let patchAssembly (targetAsm : string) (targetPatchedAsm : string) (re : Regex) (replace : string) nopdb =
   let targetInfo = new FileInfo(targetAsm)
   let pdbFileName = targetInfo.FullName.Remove(targetInfo.FullName.Length - targetInfo.Extension.Length) + ".pdb"
-  let pdbExists = File.Exists(pdbFileName) 
+  let pdbExists = (not nopdb) && File.Exists(pdbFileName) 
   let ar = new DefaultAssemblyResolver()
   ar.AddSearchDirectory(@"c:\Windows\Microsoft.NET\Framework64\v4.0.30319")
   let rp = new ReaderParameters(AssemblyResolver = ar, 
@@ -33,22 +33,6 @@ let main (args : string[]) =
   let targetPatchedAsm = args.[1]
   let re = new Regex(args.[2])
   let replace = args.[3]
-  patchAssembly targetAsm targetPatchedAsm re replace
+  let nopdb = args.[4] = "nopdb"
+  patchAssembly targetAsm targetPatchedAsm re replace nopdb
   0
-
-
-  //
-  //md.Modules.[0].AssemblyReferences |> Seq.filter (fun x -> x.Name.StartsWith("SharpTrader")) |> Seq.map (fun x -> x.Name)
-  //
-  //let td = ad.Modules |> Seq.map (fun m -> m.Types) |> Seq.concat
-  //Seq.length td
-  //td |> Seq.map (fun tdef -> tdef.Fields) |> Seq.concat |>
-  //      Seq.map (fun fld -> fld.FieldType.Scope) |> 
-  //      Seq.filter (fun scp -> scp.Name.StartsWith("SharpTrader") && not(scp.Name.StartsWith("SharpTrader.Developer")))
-  //   |> Seq.iter (fun scp -> scp.Name <- "SharpTrader.SDK")
-  //
-  //
-  //td |> Seq.map (fun tdef -> tdef.Fields) |> Seq.concat |>
-  //      Seq.map (fun fld -> fld.FieldType.Scope) |> 
-  //      Seq.filter (fun scp -> scp.Name.StartsWith("SharpTrader.SDK"))
-  //   |> Seq.length

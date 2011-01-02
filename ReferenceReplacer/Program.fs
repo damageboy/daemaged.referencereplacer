@@ -1,10 +1,14 @@
 ﻿open Mono.Cecil;
 open Mono.Cecil.Pdb;
 
+open System;
 open System.IO;
+open System.Collections.Generic;
 open System.Text.RegularExpressions;
+open Microsoft.FSharp.Text
 
-let patchAssembly (targetAsm : string) (targetPatchedAsm : string) (re : Regex) (replace : string) nopdb =
+let patchAssembly targetAsm targetPatchedAsm (re : seq<Regex>) replace nopdb =
+  // Read the existing assembly
   let targetInfo = new FileInfo(targetAsm)
   let pdbFileName = targetInfo.FullName.Remove(targetInfo.FullName.Length - targetInfo.Extension.Length) + ".pdb"
   let pdbExists = (not nopdb) && File.Exists(pdbFileName) 
@@ -14,25 +18,59 @@ let patchAssembly (targetAsm : string) (targetPatchedAsm : string) (re : Regex) 
                                 ReadSymbols = pdbExists, 
                                 ReadingMode = ReadingMode.Immediate)
 
+  // Read the symbols if necessary/specified
   if (rp.ReadSymbols) then rp.SymbolReaderProvider <- new PdbReaderProvider()
 
+  // Do it
   let ad = AssemblyDefinition.ReadAssembly(targetAsm, rp)
 
+  // Replace all asm refs that match the list of regex to the new target name
   let md = ad.Modules.[0]
-  md.AssemblyReferences |> Seq.filter (fun r -> re.IsMatch(r.Name)) |> Seq.iter (fun r -> r.Name <- replace)
-
-  //let newPdb = new FileStream(targetPatchedAsmPdb, FileMode.Create)
+  md.AssemblyReferences |> Seq.filter (fun r -> re |> Seq.exists (fun x -> x.IsMatch(r.Name))) |> Seq.iter (fun r -> r.Name <- replace)
+    
+  // Save the new asm
   let wp = new WriterParameters(WriteSymbols = pdbExists)
   if (wp.WriteSymbols) then wp.SymbolWriterProvider <- new PdbWriterProvider()
-  ad.Write(targetPatchedAsm, wp)
-  ignore
+  ad.Write(new FileStream(targetPatchedAsm, FileMode.Create), wp)
 
 [<EntryPoint>]  
 let main (args : string[]) =
-  let targetAsm = args.[0]
-  let targetPatchedAsm = args.[1]
-  let re = new Regex(args.[2])
-  let replace = args.[3]
-  let nopdb = args.[4] = "nopdb"
-  patchAssembly targetAsm targetPatchedAsm re replace nopdb
+
+  let argList = new List<string>()
+  let addArg s = argList.Add(s)
+  
+  let replace = ref ""  
+  let verbose = ref false
+  let matchList = new List<Regex>()
+  let noPdb = ref false
+  
+  
+  let specs =
+    ["-v", ArgType.Set verbose, "Display additional information"
+     "--nopdb", ArgType.Set noPdb, "Skip creation of PDB files"
+     "--match", ArgType.String (fun s -> s.Split(',') |> Array.iter (fun m -> matchList.Add(new Regex(m)))), "Reference match list separated by commas"
+     "--replace", ArgType.String (fun s -> replace := s), "Replace matches with"
+     "--", ArgType.Rest addArg, "Stop parsing command line"
+    ] |> List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc))
+ 
+  let () =
+    ArgParser.Parse(specs, addArg)
+
+  let output = argList.[argList.Count - 1]
+  argList.RemoveAt(argList.Count - 1)
+  let input = List.ofSeq argList
+  printfn "input=%A" input
+  printfn "output=%A" output
+
+  let outputList = 
+   match List.length input with
+     | 1 -> [output]
+     | _ -> input |> List.map(fun i -> Path.Combine(output, i))
+  printfn "outputList=%A" outputList
+     
+  //outputList  |> Seq.zip input |> Seq.iter (fun (i, o) -> printfn "patchAssembly %A %A %A %A %A" i o matchList !replace !noPdb)
+  outputList  |> Seq.zip input |> Seq.iter (fun (i, o) -> patchAssembly i o matchList (!replace) (!noPdb))
+
+
+
   0

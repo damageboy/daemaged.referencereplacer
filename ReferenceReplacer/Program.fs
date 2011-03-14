@@ -6,8 +6,10 @@ open System.IO;
 open System.Collections.Generic;
 open System.Text.RegularExpressions;
 open Microsoft.FSharp.Text
+open System.Reflection;
 
-let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : seq<string>) nopdb verbose =
+
+let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : seq<string>) nopdb verbose snkp =
   // Read the existing assembly
   let targetInfo = new FileInfo(targetAsm)
   let pdbFileName = targetInfo.FullName.Remove(targetInfo.FullName.Length - targetInfo.Extension.Length) + ".pdb"
@@ -15,13 +17,12 @@ let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : 
   let ar = new DefaultAssemblyResolver()
   ar.AddSearchDirectory(@"c:\Windows\Microsoft.NET\Framework64\v4.0.30319")
   let rp = new ReaderParameters(AssemblyResolver = ar, 
-                                ReadSymbols = pdbExists, 
+                                ReadSymbols = pdbExists,
                                 ReadingMode = ReadingMode.Immediate)
 
   // Read the symbols if necessary/specified
   if (rp.ReadSymbols) then rp.SymbolReaderProvider <- new PdbReaderProvider()
 
-  
   if verbose then
     let out = match rp.ReadSymbols with
       | true -> ""
@@ -30,6 +31,13 @@ let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : 
 
   // Do it
   let ad = AssemblyDefinition.ReadAssembly(targetAsm, rp)
+
+  let nullsnkp = ref (null : StrongNameKeyPair)
+  if snkp <> nullsnkp then
+    let adName = ad.Name
+    adName.HashAlgorithm <- AssemblyHashAlgorithm.SHA1
+    adName.PublicKey <- (!snkp).PublicKey    
+    ad.Name.Attributes <- ad.Name.Attributes ||| AssemblyAttributes.PublicKey
 
   // Replace all asm refs that match the list of regex to the new target name
   let md = ad.Modules.[0]
@@ -48,7 +56,7 @@ let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : 
     Seq.iter (fun r -> r.Name <- replaceStr))
     
   // Save the new asm
-  let wp = new WriterParameters(WriteSymbols = pdbExists)
+  let wp = new WriterParameters(WriteSymbols = pdbExists, StrongNameKeyPair = !snkp)
   if (wp.WriteSymbols) then wp.SymbolWriterProvider <- new PdbWriterProvider()
 
   if verbose then
@@ -69,14 +77,20 @@ let main (args : string[]) =
   let verbose = ref false
   let matchList = new List<list<Regex>>()
   let noPdb = ref false
+  let keyPair = ref (null : StrongNameKeyPair)
   
+  let snkp fn = new StrongNameKeyPair(File.Open(fn, FileMode.Open))
+
   
   let specs =
-    ["-v", ArgType.Set verbose, "Display additional information"
-     "--nopdb", ArgType.Set noPdb, "Skip creation of PDB files"
-     "--match", ArgType.String (fun s -> s.Split(',') |> Seq.map (fun p -> new Regex(p)) |> List.ofSeq |> matchList.Add), "Reference match list separated by commas"
-     "--replace", ArgType.String (fun s -> replace.Add(s)), "Replace matches with"
-     "--", ArgType.Rest addArg, "Stop parsing command line"
+    ["-v",        ArgType.Set verbose,                                         "Display additional information"
+     "--nopdb",   ArgType.Set noPdb,                                           "Skip creation of PDB files"
+     "--match",   ArgType.String (fun s -> s.Split(',') |> 
+                                           Seq.map (fun p -> new Regex(p)) |> 
+                                           List.ofSeq |> matchList.Add),       "Reference match list separated by commas"
+     "--replace", ArgType.String (fun s -> replace.Add(s)),                    "Replace matches with"
+     "--keyfile", ArgType.String (fun s -> keyPair := snkp s),                 "Key pair to sign the assembly with"
+     "--",        ArgType.Rest   addArg,                                       "Stop parsing command line"
     ] |> List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc))
  
   let () =
@@ -88,6 +102,8 @@ let main (args : string[]) =
   if (!verbose) then
     printfn "inputList=%A" inputList
     printfn "output=%A" output
+    if !keyPair <> null then
+      printfn "key-pair=%A" (!keyPair).PublicKey
 
   let outputList = 
    match List.length inputList with
@@ -98,5 +114,5 @@ let main (args : string[]) =
     printfn "outputList=%A" outputList
      
   //outputList  |> Seq.zip input |> Seq.iter (fun (i, o) -> printfn "patchAssembly %A %A %A %A %A" i o matchList !replace !noPdb)
-  outputList  |> Seq.zip inputList |> Seq.iter (fun (i, o) -> patchAssembly i o matchList replace !noPdb !verbose)
+  outputList  |> Seq.zip inputList |> Seq.iter (fun (i, o) -> patchAssembly i o matchList replace !noPdb !verbose keyPair)
   0

@@ -35,16 +35,16 @@
     <WarningLevel>3</WarningLevel>
     <PlatformTarget>x86</PlatformTarget>
     <DocumentationFile>bin\Release\Daemaged.ReferenceReplacer.xml</DocumentationFile>
+    <StartWorkingDirectory>C:\projects\private\sharptrader.git\src\SharpTrader.Developer.Dist</StartWorkingDirectory>
+    <StartArguments>--keyfile ..\keys\SharpTrader.snk --match SharpTrader.Core,SharpTrader.Aspects,SharpTrader.Business,SharpTrader.Connectors,SharpTrader.Data,SharpTrader.ExcelLib,SharpTrader.Execution,SharpTrader.Feeds,SharpTrader.FinChart,SharpTrader.FinMath,SharpTrader.FIX,SharpTrader.FIXApplication,SharpTrader.FIXData,SharpTrader.Indicators,SharpTrader.Instruments,SharpTrader.Optimization,SharpTrader.Pricers,SharpTrader.Series,SharpTrader.Simulation,SharpTrader.Services,SharpTrader.Storage,SharpTrader.Testing,SharpTrader.Trading --replace SharpTrader.SDK --match SharpTrader.UI.WinForms.Charting,SharpTrader.UI.WinForms.FinChart,SharpTrader.UI.WinForms.Common,SharpTrader.UI.WinForms.Aspects --replace SharpTrader.UI.WinForms ../../build/win-release-x64\/SharpTrader.Benchmark.exe C:\projects\private\sharptrader.git\src\SharpTrader.Developer.Dist\/../../dist/win-release-x64/SharpTrader.Developer.Dist/bin/tmp/SharpTrader.Benchmark.exe</StartArguments>
   </PropertyGroup>
   <Import Project="$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets" Condition="!Exists('$(MSBuildBinPath)\Microsoft.Build.Tasks.v4.0.dll')" />
   <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildBinPath)\Microsoft.Build.Tasks.v4.0.dll')" />
   <ItemGroup>
+    <Compile Include="Arg.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
-    <Reference Include="FSharp.PowerPack">
-      <HintPath>..\..\..\..\dev\FSharpPowerPack\bin\FSharp.PowerPack.dll</HintPath>
-    </Reference>
     <Reference Include="Mono.Cecil">
       <HintPath>..\deplibs\Mono.Cecil.dll</HintPath>
     </Reference>
@@ -52,7 +52,9 @@
       <HintPath>..\deplibs\Mono.Cecil.Pdb.dll</HintPath>
     </Reference>
     <Reference Include="mscorlib" />
-    <Reference Include="FSharp.Core" />
+    <Reference Include="FSharp.Core">
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />

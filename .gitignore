@@ -1,0 +1,4 @@
+ReferenceReplacer/bin/
+ReferenceReplacer/obj/
+*.suo
+*.user

@@ -41,7 +41,7 @@ let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : 
     ad.Name.Attributes <- ad.Name.Attributes ||| AssemblyAttributes.PublicKey
 
   // Replace all asm refs that match the list of regex to the new target name
-  let md = ad.Modules.[0]
+  let md = ad.MainModule
   
   let printdbg s1 s2 = 
     if verbose then
@@ -86,6 +86,7 @@ let main (args : string[]) =
   let matchList = new List<list<Regex>>()
   let noPdb = ref false
   let skipMissing = ref false
+  let checkTimeStamps = ref false
   let useTasks = ref false
   let keyPair = ref (null : StrongNameKeyPair)
   
@@ -93,11 +94,12 @@ let main (args : string[]) =
 
   
   let specs =
-    ["-v",             ArgType.Set verbose,                                    "Display additional information"
-     "--nopdb",        ArgType.Set noPdb,                                      "Skip creation of PDB files"
-     "--skip-missing", ArgType.Set skipMissing,                                "Skip missing input files silently"   
-     "--parallel",     ArgType.Set useTasks,                                   "Execute task in parallel on all avaiable CPUs"   
-     "--match",        ArgType.String (fun s -> s.Split(',') |> 
+    ["-v",                 ArgType.Set verbose,                                    "Display additional information"
+     "--nopdb",            ArgType.Set noPdb,                                      "Skip creation of PDB files"
+     "--skip-missing",     ArgType.Set skipMissing,                                "Skip missing input files silently"   
+     "--check-timestamps", ArgType.Set checkTimeStamps,                            "Skip processing files where the target is newer than the source"   
+     "--parallel",         ArgType.Set useTasks,                                   "Execute task in parallel on all avaiable CPUs"   
+     "--match",            ArgType.String (fun s -> s.Split(',') |> 
                                            Seq.map (fun p -> new Regex(p)) |> 
                                            List.ofSeq |> matchList.Add),       "Reference match list separated by commas"
      "--replace",      ArgType.String (fun s -> replace.Add(s)),               "Replace matches with"
@@ -128,23 +130,30 @@ let main (args : string[]) =
     
   let outputList = 
    match List.length inputList with
-     | 1 -> [output]
-     | _ -> realInputList |> List.map (fun fi -> Path.Combine(output, fi.Name))
+     | 1 -> [new FileInfo(output)]
+     | _ -> realInputList |> List.map (fun fi -> new FileInfo(Path.Combine(output, fi.Name)))
   
   if (!verbose) then
     printfn "outputList=%A" outputList
     
+  let processPairs =
+    outputList 
+    |> Seq.zip realInputList 
+    |> Seq.filter (fun (i, o) -> 
+      match !checkTimeStamps with
+      | true -> not(o.Exists) || i.LastWriteTimeUtc > o.LastWriteTimeUtc
+      | false -> true
+    )
+    |> Seq.toList
 
   if !useTasks then
     let tasks = 
-      outputList 
-      |> Seq.zip realInputList 
-      |> Seq.map (fun (i, o) -> Task.Factory.StartNew(new Action(fun () -> patchAssembly i.FullName o matchList replace !noPdb !verbose keyPair)))    
+      processPairs
+      |> Seq.map (fun (i, o) -> Task.Factory.StartNew(new Action(fun () -> patchAssembly i.FullName o.FullName matchList replace !noPdb !verbose keyPair)))    
       |> Seq.toArray
     Task.WaitAll(tasks)    
   else
-    outputList 
-    |> Seq.zip realInputList  
-    |> Seq.iter (fun (i, o) -> patchAssembly i.FullName o matchList replace !noPdb !verbose keyPair)
+    processPairs    
+    |> Seq.iter (fun (i, o) -> patchAssembly i.FullName o.FullName matchList replace !noPdb !verbose keyPair)
 
   0

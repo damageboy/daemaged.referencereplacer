@@ -10,36 +10,34 @@ open Microsoft.FSharp.Text
 open System.Reflection;
 
 
-let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : seq<string>) nopdb verbose snkp =
+let readAsm sourceAsm noPdb verbose =
   // Read the existing assembly
-  let targetInfo = new FileInfo(targetAsm)
-  let pdbFileName = targetInfo.FullName.Remove(targetInfo.FullName.Length - targetInfo.Extension.Length) + ".pdb"
-  let pdbExists = (not nopdb) && File.Exists(pdbFileName) 
+  let sourceInfo = new FileInfo(sourceAsm)
+  let pdbFileName = sourceInfo.FullName.Remove(sourceInfo.FullName.Length - sourceInfo.Extension.Length) + ".pdb"
+  let pdbExists = (not noPdb) && File.Exists(pdbFileName) 
   let ar = new DefaultAssemblyResolver()
   ar.AddSearchDirectory(@"c:\Windows\Microsoft.NET\Framework64\v4.0.30319")
   let rp = new ReaderParameters(AssemblyResolver = ar, 
                                 ReadSymbols = pdbExists,
                                 ReadingMode = ReadingMode.Immediate)
-
+  
   // Read the symbols if necessary/specified
   if (rp.ReadSymbols) then rp.SymbolReaderProvider <- new PdbReaderProvider()
-
   if verbose then
-    let out = match rp.ReadSymbols with
+    let out = 
+      match rp.ReadSymbols with
       | true -> ""
       | false -> "out"
-    printfn "Reading %A with%A symbols" targetAsm out
-
+    printfn "Reading %A with%A symbols" sourceAsm out
+  
   // Do it
-  let ad = AssemblyDefinition.ReadAssembly(targetAsm, rp)
+  try
+    AssemblyDefinition.ReadAssembly(sourceAsm, rp)
+  with
+  | _ as ex
+    ->  raise <| new Exception(String.Format("Failed to assembly {0}", sourceAsm), ex)
 
-  let nullsnkp = ref (null : StrongNameKeyPair)
-  if snkp <> nullsnkp then
-    let adName = ad.Name
-    adName.HashAlgorithm <- AssemblyHashAlgorithm.SHA1
-    adName.PublicKey <- (!snkp).PublicKey    
-    ad.Name.Attributes <- ad.Name.Attributes ||| AssemblyAttributes.PublicKey
-
+let replaceReferences (re : seq<list<Regex>>) (replace : seq<string>) verbose (ad : AssemblyDefinition) =
   // Replace all asm refs that match the list of regex to the new target name
   let md = ad.MainModule
   
@@ -48,7 +46,7 @@ let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : 
       printfn "Changing %A <- %A" s1 s2
     true
 
-  let  hasChanges = ref false
+  let hasChanges = ref false
 
   replace |> 
   Seq.zip re |> 
@@ -61,19 +59,40 @@ let patchAssembly targetAsm targetPatchedAsm (re : seq<list<Regex>>) (replace : 
         r.Name <- replaceStr
         hasChanges := true
     ))
+  !hasChanges
 
-  if !hasChanges then
-    // Save the new asm
-    let wp = new WriterParameters(WriteSymbols = pdbExists, StrongNameKeyPair = !snkp)
-    if (wp.WriteSymbols) then wp.SymbolWriterProvider <- new PdbWriterProvider()
+let writeAsm destAsm noPdb verbose snkp (ad : AssemblyDefinition) = 
+  // Force signing the new assembly if we were passed a SNK file ref
+  let nullsnkp = ref (null : StrongNameKeyPair)
+  if snkp <> nullsnkp then
+    let adName = ad.Name
+    adName.HashAlgorithm <- AssemblyHashAlgorithm.SHA1
+    adName.PublicKey <- (!snkp).PublicKey    
+    ad.Name.Attributes <- ad.Name.Attributes ||| AssemblyAttributes.PublicKey
+ 
+  let wp = new WriterParameters(WriteSymbols = ad.MainModule.HasSymbols, StrongNameKeyPair = !snkp)
+  if (wp.WriteSymbols) then wp.SymbolWriterProvider <- new PdbWriterProvider()
 
-    if verbose then
-      let out = match wp.WriteSymbols with
-        | true -> ""
-        | false -> "out"
-      printfn "Reading %A with%A symbols" targetAsm out
+  if verbose then
+    let out = 
+      match wp.WriteSymbols with
+      | true -> ""
+      | false -> "out"
+    printfn "Writing %A with%A symbols" destAsm out
+  ad.Write(new FileStream(destAsm, FileMode.Create), wp)
 
-    ad.Write(new FileStream(targetPatchedAsm, FileMode.Create), wp)
+let patchAssembly sourceAsm destAsm (re : seq<list<Regex>>) (replace : seq<string>) noPdb verbose snkp =
+  try 
+    let ad = readAsm sourceAsm noPdb verbose 
+    let hasChanges = replaceReferences re replace verbose ad 
+    if hasChanges then
+      writeAsm destAsm noPdb verbose snkp ad
+  with
+  | _ as ex
+    -> printfn "Encountered %A while trying to process %A" ex sourceAsm
+
+
+
 
 [<EntryPoint>]  
 let main (args : string[]) =
@@ -98,7 +117,7 @@ let main (args : string[]) =
      "--nopdb",            ArgType.Set noPdb,                                      "Skip creation of PDB files"
      "--skip-missing",     ArgType.Set skipMissing,                                "Skip missing input files silently"   
      "--check-timestamps", ArgType.Set checkTimeStamps,                            "Skip processing files where the target is newer than the source"   
-     "--parallel",         ArgType.Set useTasks,                                   "Execute task in parallel on all avaiable CPUs"   
+     "--parallel",         ArgType.Set useTasks,                                   "Execute task in parallel on all available CPUs"   
      "--match",            ArgType.String (fun s -> s.Split(',') |> 
                                            Seq.map (fun p -> new Regex(p)) |> 
                                            List.ofSeq |> matchList.Add),       "Reference match list separated by commas"

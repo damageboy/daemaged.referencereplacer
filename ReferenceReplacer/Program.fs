@@ -79,7 +79,12 @@ let writeAsm destAsm noPdb verbose snkp (ad : AssemblyDefinition) =
       | true -> ""
       | false -> "out"
     printfn "Writing %A with%A symbols" destAsm out
+
   ad.Write(new FileStream(destAsm, FileMode.Create), wp)
+
+  // TODO: Implement linux-only chmod here
+  //if Path.GetExtension(destAsm) = ".exe" then
+    
 
 let patchAssembly sourceAsm destAsm (re : seq<list<Regex>>) (replace : seq<string>) noPdb verbose snkp =
   try 
@@ -149,7 +154,7 @@ let main (args : string[]) =
     
   let outputList = 
    match List.length inputList with
-     | 1 -> [new FileInfo(output)]
+     | 1 -> [if Directory.Exists(output) then Path.Combine(output, Path.GetFileName(realInputList.[0])) else new FileInfo(output)]
      | _ -> realInputList |> List.map (fun fi -> new FileInfo(Path.Combine(output, fi.Name)))
   
   if (!verbose) then

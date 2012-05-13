@@ -28,7 +28,7 @@ let readAsm sourceAsm noPdb verbose =
       match rp.ReadSymbols with
       | true -> ""
       | false -> "out"
-    printfn "Reading %A with%A symbols" sourceAsm out
+    printfn "Reading %A with%s symbols" sourceAsm out
   
   // Do it
   try

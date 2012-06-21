@@ -8,15 +8,22 @@ open System.Threading.Tasks
 open System.Text.RegularExpressions;
 open Microsoft.FSharp.Text
 open System.Reflection;
+open Mono.Unix.Native;
 
+let notWindows = Environment.OSVersion.Platform <> PlatformID.Win32NT
+let isWindows = not notWindows
 
-let readAsm sourceAsm noPdb verbose =
+let readAsm sourceAsm noPdb searchDirs verbose =
   // Read the existing assembly
   let sourceInfo = new FileInfo(sourceAsm)
   let pdbFileName = sourceInfo.FullName.Remove(sourceInfo.FullName.Length - sourceInfo.Extension.Length) + ".pdb"
   let pdbExists = (not noPdb) && File.Exists(pdbFileName) 
   let ar = new DefaultAssemblyResolver()
-  ar.AddSearchDirectory(@"c:\Windows\Microsoft.NET\Framework64\v4.0.30319")
+
+  // Add search directories such as @"C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.0"
+  searchDirs |> Seq.iter (fun sd -> ar.AddSearchDirectory(sd))
+
+  
   let rp = new ReaderParameters(AssemblyResolver = ar, 
                                 ReadSymbols = pdbExists,
                                 ReadingMode = ReadingMode.Immediate)
@@ -81,14 +88,17 @@ let writeAsm destAsm noPdb verbose snkp (ad : AssemblyDefinition) =
     printfn "Writing %A with%A symbols" destAsm out
 
   ad.Write(new FileStream(destAsm, FileMode.Create), wp)
+  
+  if notWindows && Path.GetExtension(destAsm) = ".exe" then    
+    printfn "Chmodding %A to executable" destAsm
+    Syscall.chmod(destAsm, FilePermissions.S_IRWXU ||| FilePermissions.S_IRGRP ||| FilePermissions.S_IXGRP ||| FilePermissions.S_IROTH ||| FilePermissions.S_IXOTH) |> ignore
 
-  // TODO: Implement linux-only chmod here
-  //if Path.GetExtension(destAsm) = ".exe" then
+    
     
 
-let patchAssembly sourceAsm destAsm (re : seq<list<Regex>>) (replace : seq<string>) noPdb verbose snkp =
+let patchAssembly sourceAsm destAsm (re : seq<list<Regex>>) (replace : seq<string>) noPdb verbose snkp searchDirs =
   try 
-    let ad = readAsm sourceAsm noPdb verbose 
+    let ad = readAsm sourceAsm noPdb searchDirs verbose 
     let hasChanges = replaceReferences re replace verbose ad 
     if hasChanges then
       writeAsm destAsm noPdb verbose snkp ad
@@ -113,6 +123,7 @@ let main (args : string[]) =
   let checkTimeStamps = ref false
   let useTasks = ref false
   let keyPair = ref (null : StrongNameKeyPair)
+  let searchDirs = new List<string>()
   
   let snkp fn = new StrongNameKeyPair(File.Open(fn, FileMode.Open))
 
@@ -127,6 +138,8 @@ let main (args : string[]) =
                                            Seq.map (fun p -> new Regex(p)) |> 
                                            List.ofSeq |> matchList.Add),       "Reference match list separated by commas"
      "--replace",      ArgType.String (fun s -> replace.Add(s)),               "Replace matches with"
+     "--search-path",  ArgType.String 
+                          (fun s -> searchDirs.AddRange(s.Split(';'))),            "Base date for build date"     
      "--keyfile",      ArgType.String (fun s -> keyPair := snkp s),            "Key pair to sign the assembly with"
      "--",             ArgType.Rest   addArg,                                  "Stop parsing command line"
     ] |> List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc))
@@ -154,7 +167,7 @@ let main (args : string[]) =
     
   let outputList = 
    match List.length inputList with
-     | 1 -> [if Directory.Exists(output) then Path.Combine(output, Path.GetFileName(realInputList.[0])) else new FileInfo(output)]
+     | 1 -> [ new FileInfo(if Directory.Exists(output) then Path.Combine(output, Path.GetFileName(realInputList.[0].FullName)) else output)]
      | _ -> realInputList |> List.map (fun fi -> new FileInfo(Path.Combine(output, fi.Name)))
   
   if (!verbose) then
@@ -173,11 +186,11 @@ let main (args : string[]) =
   if !useTasks then
     let tasks = 
       processPairs
-      |> Seq.map (fun (i, o) -> Task.Factory.StartNew(new Action(fun () -> patchAssembly i.FullName o.FullName matchList replace !noPdb !verbose keyPair)))    
+      |> Seq.map (fun (i, o) -> Task.Factory.StartNew(new Action(fun () -> patchAssembly i.FullName o.FullName matchList replace !noPdb !verbose keyPair searchDirs)))
       |> Seq.toArray
     Task.WaitAll(tasks)    
   else
     processPairs    
-    |> Seq.iter (fun (i, o) -> patchAssembly i.FullName o.FullName matchList replace !noPdb !verbose keyPair)
+    |> Seq.iter (fun (i, o) -> patchAssembly i.FullName o.FullName matchList replace !noPdb !verbose keyPair searchDirs)
 
   0

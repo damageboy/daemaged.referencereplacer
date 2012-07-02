@@ -139,7 +139,7 @@ let main (args : string[]) =
                                            List.ofSeq |> matchList.Add),       "Reference match list separated by commas"
      "--replace",      ArgType.String (fun s -> replace.Add(s)),               "Replace matches with"
      "--search-path",  ArgType.String 
-                          (fun s -> searchDirs.AddRange(s.Split(';'))),            "Base date for build date"     
+                          (fun s -> searchDirs.AddRange(s.Split(';', ':'))),            "Base date for build date"     
      "--keyfile",      ArgType.String (fun s -> keyPair := snkp s),            "Key pair to sign the assembly with"
      "--",             ArgType.Rest   addArg,                                  "Stop parsing command line"
     ] |> List.map (fun (sh, ty, desc) -> ArgInfo(sh, ty, desc))

@@ -39,8 +39,12 @@
     <StartArguments>--check-timestamps --skip-missing --parallel --keyfile ..\keys\SharpTrader.snk --match SharpTrader.Core,SharpTrader.Aspects,SharpTrader.Business,SharpTrader.Connectors,SharpTrader.Data,SharpTrader.ExcelLib,SharpTrader.Execution,SharpTrader.Feeds,SharpTrader.FinChart,SharpTrader.FinMath,SharpTrader.FIX,SharpTrader.FIXApplication,SharpTrader.FIXData,SharpTrader.Indicators,SharpTrader.Instruments,SharpTrader.Optimization,SharpTrader.Pricers,SharpTrader.Series,SharpTrader.Simulation,SharpTrader.Services,SharpTrader.Storage,SharpTrader.Testing,SharpTrader.Trading,SharpTrader.Reporting,SharpTrader.Projects,SharpTrader.Monitoring.Service --replace SharpTrader.SDK --match SharpTrader.UI.WinForms.Charting,SharpTrader.UI.WinForms.FinChart,SharpTrader.UI.WinForms.Common,SharpTrader.UI.WinForms.Aspects --replace SharpTrader.UI.WinForms ../../build/win-release-x64\/SharpTrader.Benchmark ../../build/win-release-x64\/SharpTrader.Benchmark ../../build/win-release-x64\/SharpTrader.Configurator ../../build/win-release-x64\/SharpTrader.Configurator ../../build/win-release-x64\/SharpTrader.DatabaseManager ../../build/win-release-x64\/SharpTrader.DatabaseManager ../../build/win-release-x64\/SharpTrader.SHIT ../../build/win-release-x64\/SharpTrader.SHIT ../../build/win-release-x64\/SharpTrader.Developer ../../build/win-release-x64\/SharpTrader.Developer ../../build/win-release-x64\/SharpTrader.Feeds.Algos ../../build/win-release-x64\/SharpTrader.Feeds.Algos ../../build/win-release-x64\/SharpTrader.Feeds.IB ../../build/win-release-x64\/SharpTrader.Feeds.IB ../../build/win-release-x64\/SharpTrader.Feeds.NewEdge ../../build/win-release-x64\/SharpTrader.Feeds.NewEdge ../../build/win-release-x64\/SharpTrader.Feeds.TT ../../build/win-release-x64\/SharpTrader.Feeds.TT ../../build/win-release-x64\/SharpTrader.Feeds.Yahoo ../../build/win-release-x64\/SharpTrader.Feeds.Yahoo ../../build/win-release-x64\/SharpTrader.SDK ../../build/win-release-x64\/SharpTrader.SDK ../../build/win-release-x64\/SharpTrader.UI.WinForms ../../build/win-release-x64\/SharpTrader.UI.WinForms C:\projects\private\sharptrader.git\src\SharpTrader.Developer.Dist\/../../dist/win-release-x64/SharpTrader.Developer.Dist/bin</StartArguments>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
-  <Import Project="$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets" Condition="!Exists('$(MSBuildBinPath)\Microsoft.Build.Tasks.v4.0.dll')" />
-  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" Condition=" Exists('$(MSBuildBinPath)\Microsoft.Build.Tasks.v4.0.dll')" />
+  <PropertyGroup>
+    <MinimumVisualStudioVersion Condition="'$(MinimumVisualStudioVersion)' == ''">11</MinimumVisualStudioVersion>
+  </PropertyGroup>
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets" Condition="Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')" />
+  <Import Project="$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets" Condition="(!Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')) And (Exists('$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets'))" />
+  <Import Project="$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets" Condition="(!Exists('$(MSBuildExtensionsPath32)\..\Microsoft SDKs\F#\3.0\Framework\v4.0\Microsoft.FSharp.Targets')) And (!Exists('$(MSBuildExtensionsPath32)\..\Microsoft F#\v4.0\Microsoft.FSharp.Targets')) And (Exists('$(MSBuildExtensionsPath32)\FSharp\1.0\Microsoft.FSharp.Targets'))" />
   <ItemGroup>
     <Compile Include="Arg.fs" />
     <Compile Include="Program.fs" />
@@ -66,11 +70,7 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Numerics" />
   </ItemGroup>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-	     Other similar extension points exist, see Microsoft.Common.targets.
-	<Target Name="BeforeBuild">
-	</Target>
-	<Target Name="AfterBuild">
-	</Target>
-	-->
+  <Target Name="AfterBuild">
+  <Exec Command="$(ProjectDir)../packages/ILRepack.1.17/tools/ILRepack.exe /wildcards /out:$(TargetDir)../$(AssemblyName).exe $(TargetPath) $(TargetDir)*.dll" />
+  </Target>
 </Project>

@@ -8,7 +8,7 @@
     <ProjectGuid>{07ee6f30-0873-4451-af0b-69559916f862}</ProjectGuid>
     <OutputType>Exe</OutputType>
     <RootNamespace>ReferenceReplacer</RootNamespace>
-    <AssemblyName>Daemaged.ReferenceReplacer</AssemblyName>
+    <AssemblyName>referencereplacer</AssemblyName>
     <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
     <TargetFrameworkProfile>
     </TargetFrameworkProfile>
@@ -34,7 +34,8 @@
     <OutputPath>bin\Release\</OutputPath>
     <DefineConstants>TRACE</DefineConstants>
     <WarningLevel>3</WarningLevel>
-    <DocumentationFile>bin\Release\Daemaged.ReferenceReplacer.xml</DocumentationFile>
+    <DocumentationFile>
+    </DocumentationFile>
     <StartWorkingDirectory>C:\projects\private\sharptrader.git\src\SharpTrader.Developer.Dist</StartWorkingDirectory>
     <StartArguments>--check-timestamps --skip-missing --parallel --keyfile ..\keys\SharpTrader.snk --match SharpTrader.Core,SharpTrader.Aspects,SharpTrader.Business,SharpTrader.Connectors,SharpTrader.Data,SharpTrader.ExcelLib,SharpTrader.Execution,SharpTrader.Feeds,SharpTrader.FinChart,SharpTrader.FinMath,SharpTrader.FIX,SharpTrader.FIXApplication,SharpTrader.FIXData,SharpTrader.Indicators,SharpTrader.Instruments,SharpTrader.Optimization,SharpTrader.Pricers,SharpTrader.Series,SharpTrader.Simulation,SharpTrader.Services,SharpTrader.Storage,SharpTrader.Testing,SharpTrader.Trading,SharpTrader.Reporting,SharpTrader.Projects,SharpTrader.Monitoring.Service --replace SharpTrader.SDK --match SharpTrader.UI.WinForms.Charting,SharpTrader.UI.WinForms.FinChart,SharpTrader.UI.WinForms.Common,SharpTrader.UI.WinForms.Aspects --replace SharpTrader.UI.WinForms ../../build/win-release-x64\/SharpTrader.Benchmark ../../build/win-release-x64\/SharpTrader.Benchmark ../../build/win-release-x64\/SharpTrader.Configurator ../../build/win-release-x64\/SharpTrader.Configurator ../../build/win-release-x64\/SharpTrader.DatabaseManager ../../build/win-release-x64\/SharpTrader.DatabaseManager ../../build/win-release-x64\/SharpTrader.SHIT ../../build/win-release-x64\/SharpTrader.SHIT ../../build/win-release-x64\/SharpTrader.Developer ../../build/win-release-x64\/SharpTrader.Developer ../../build/win-release-x64\/SharpTrader.Feeds.Algos ../../build/win-release-x64\/SharpTrader.Feeds.Algos ../../build/win-release-x64\/SharpTrader.Feeds.IB ../../build/win-release-x64\/SharpTrader.Feeds.IB ../../build/win-release-x64\/SharpTrader.Feeds.NewEdge ../../build/win-release-x64\/SharpTrader.Feeds.NewEdge ../../build/win-release-x64\/SharpTrader.Feeds.TT ../../build/win-release-x64\/SharpTrader.Feeds.TT ../../build/win-release-x64\/SharpTrader.Feeds.Yahoo ../../build/win-release-x64\/SharpTrader.Feeds.Yahoo ../../build/win-release-x64\/SharpTrader.SDK ../../build/win-release-x64\/SharpTrader.SDK ../../build/win-release-x64\/SharpTrader.UI.WinForms ../../build/win-release-x64\/SharpTrader.UI.WinForms C:\projects\private\sharptrader.git\src\SharpTrader.Developer.Dist\/../../dist/win-release-x64/SharpTrader.Developer.Dist/bin</StartArguments>
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -71,6 +72,6 @@
     <Reference Include="System.Numerics" />
   </ItemGroup>
   <Target Name="AfterBuild">
-  <Exec Command="$(ProjectDir)../packages/ILRepack.1.17/tools/ILRepack.exe /wildcards /out:$(TargetDir)../$(AssemblyName).exe $(TargetPath) $(TargetDir)*.dll" />
+    <Exec Command="$(ProjectDir)../packages/ILRepack.1.17/tools/ILRepack.exe /wildcards /out:$(TargetDir)../$(AssemblyName).exe $(TargetPath) $(TargetDir)*.dll" />
   </Target>
 </Project>
